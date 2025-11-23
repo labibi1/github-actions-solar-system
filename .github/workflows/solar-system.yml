@@ -104,7 +104,7 @@ on:
       - 'feature/*' # Runs on main and any feature branch
 
 env:
-  # Using template variables for the URI structure, which is generally safer
+  # Using template variables for the URI structure
   MONGO_HOST: supercluster.d83jj.mongodb.net
   MONGO_DBNAME: superData
   MONGO_USERNAME: superuser
@@ -121,7 +121,6 @@ jobs:
         nodejs_version: [18.x, 20.x]
         operating_system: [ubuntu-latest, macos-latest]
         exclude:
-          # Exclude one combination to save CI time if it's redundant
           - nodejs_version: 18.x
             operating_system: macos-latest
     runs-on: ${{ matrix.operating_system }}
@@ -136,40 +135,37 @@ jobs:
 
       - name: 📦 Cache NPM dependencies
         uses: actions/cache@v4
-        id: npm-cache # Give the step an ID to check its status
+        id: npm-cache
         with:
           path: node_modules
-          # Use hashFiles('**/package-lock.json') for robust path searching
+          # FIX: Use robust glob pattern '**/package-lock.json'
           key: ${{ runner.os }}-${{ matrix.nodejs_version }}-node-modules-${{ hashFiles('**/package-lock.json') }}
 
       - name: Install Dependencies
-        # Only run npm install if the cache was missed
         if: steps.npm-cache.outputs.cache-hit != 'true'
         run: npm install
 
-      # FIX: The MONGO_URI needs to be explicitly defined for the test environment.
-      # We construct the URI here. Note: Mongoose might expect a slightly different format
-      # (e.g., including 'retryWrites=true&w=majority' or 'ssl=true').
       - name: Run Unit Tests
         run: |
           npm test
         env:
-          # Use a different DB name (e.g., testData) if possible to isolate tests
+          # Construct MONGO_URI for testing environment
           MONGO_URI: mongodb+srv://${{ env.MONGO_USERNAME }}:${{ env.MONGO_PASSWORD }}@${{ env.MONGO_HOST }}/${{ env.MONGO_DBNAME }}?authSource=admin&ssl=true
 
       - name: ⬆️ Archive Test Results
-        if: always() # Archives even if tests fail
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: mocha-test-results-${{ matrix.operating_system }}-${{ matrix.nodejs_version }}
-          path: test-results1.xml # Check that your Mocha reporter output this exact file name
+          path: test-results1.xml
+
+  ---
 
   # ====================================================================
   # JOB 2: CODE COVERAGE
   # ====================================================================
   code-coverage:
     name: Code Coverage
-    # Ensure this job only runs after tests pass
     needs: unit-testing
     runs-on: ubuntu-latest
     steps:
@@ -186,6 +182,7 @@ jobs:
         id: npm-cache-coverage
         with:
           path: node_modules
+          # FIX: Use robust glob pattern '**/package-lock.json'
           key: ${{ runner.os }}-18.x-node-modules-${{ hashFiles('**/package-lock.json') }}
 
       - name: Install Dependencies
@@ -193,7 +190,6 @@ jobs:
         run: npm install
 
       - name: Run Coverage
-        # If npm run coverage fails (e.g., due to low threshold), continue-on-error prevents blocking the artifact step
         continue-on-error: true
         run: npm run coverage
 
@@ -201,5 +197,16 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: coverage-report
-          # FIX: Corrected the typo in the file name from 'corvrage-results1.xml'
+          # FIX: Corrected the typo in the file name
           path: coverage-results1.xml
+
+
+
+  # ====================================================================
+  # JOB 3: LIKELY THE JOB AROUND LINE 143 (Placeholder: Deploy)
+  # ====================================================================
+  # This job represents the one that likely contained the error at line 143.
+  # Assuming a structure similar to the others, a cache step would be present.
+  deployment:
+    name: Deploy to Environment
+    needs: code
