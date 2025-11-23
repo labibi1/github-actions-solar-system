@@ -170,8 +170,8 @@ jobs:
 
 
   docker:
-    name: Containerization
-    needs: [unit-testing, code-coverage]
+    name: Push to Docker Hub & GHCR
+    needs: [unit-testing, containerization, code-coverage]
     runs-on: ubuntu-latest
     permissions:
       packages: write    # Grant write access to GHCR
