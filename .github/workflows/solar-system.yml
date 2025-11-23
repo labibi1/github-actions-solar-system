@@ -159,7 +159,7 @@ jobs:
           name: mocha-test-results-${{ matrix.operating_system }}-${{ matrix.nodejs_version }}
           path: test-results1.xml
 
-  ---
+
 
   # ====================================================================
   # JOB 2: CODE COVERAGE
@@ -207,6 +207,6 @@ jobs:
   # ====================================================================
   # This job represents the one that likely contained the error at line 143.
   # Assuming a structure similar to the others, a cache step would be present.
-  deployment:
-    name: Deploy to Environment
-    needs: code
+  # deployment:
+  #   name: Deploy to Environment
+  #   needs: code
