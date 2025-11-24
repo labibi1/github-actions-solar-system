@@ -65,38 +65,44 @@ jobs:
 
 
   code-coverage:
-       name: Code Coverage
-       needs: [unit-testing]
-       runs-on: ubuntu-latest
-       steps:
-       - name: Checkout Repository
-         uses: actions/checkout@v4
+    name: Code Coverage
+    runs-on: ubuntu-latest
+    container:
+      image: node:18
+    services:
+      mongo:
+        image: siddharth67/mongo-db:non-prod
+        options: --name mongo
+    env:
+      MONGO_URI: 'mongodb://mongo:27017/superData'
+      MONGO_USERNAME: non-prod-user
+      MONGO_PASSWORD: non-prod-password
 
 
-       - name: Setup Node.js 18
-         uses: actions/setup-node@v3
-         with:
-          node-version: 18
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
 
-       - name: Cache NPM dependencies
-         uses: actions/cache@v4
-         with:
-           path: node_modules
-           key: ${{ runner.os }}-node-modules-${{ hashFiles('package-lock.json') }}
+      - name: Cache NPM dependencies
+        uses: actions/cache@v3
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-node-modules-${{ hashFiles('package-lock.json') }}
 
 
-       - name: Install Dependencies
-         run: npm install
+      - name: Install dependencies
+        run: npm install
 
 
-       - name: Run Coverage
-         continue-on-error: true
-         run: npm run coverage
+      - name: Run coverage
+        run: npm run coverage
+        continue-on-error: true
 
 
-       - name: Archive Coverage Report
-         uses: actions/upload-artifact@v4
-         with:
-            name: coverage-report1
-            path: corvrage-results1.xml
+      - name: Archive test results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: Mocha-Test-Result
+          path: test-results.xml
