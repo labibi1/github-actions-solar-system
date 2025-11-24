@@ -66,6 +66,7 @@ jobs:
 
   code-coverage:
     name: Code Coverage
+    needs: [unit-testing]
     runs-on: ubuntu-latest
     container:
       image: node:18
@@ -85,7 +86,7 @@ jobs:
 
 
       - name: Cache NPM dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: node_modules
           key: ${{ runner.os }}-node-modules-${{ hashFiles('package-lock.json') }}
