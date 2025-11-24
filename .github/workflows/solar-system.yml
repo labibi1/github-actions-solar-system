@@ -216,7 +216,6 @@ jobs:
           sleep 5
           wget -qO- http://localhost:3000/live | grep "live"
 
-
       - name: Push to Docker Hub & GHCR
         uses: docker/build-push-action@v4
         with:
