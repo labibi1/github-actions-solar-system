@@ -304,7 +304,7 @@ jobs:
     if: github.ref == 'refs/heads/main'
     environment:
       name: prod
-     # The 'url' link here will also correctly use the captured HOST value
+     # The 'url' link here will also correctly use the captured HOST value.
       url: https://${{ steps.set-ingress-host-address.outputs.APP_INGRESS_HOST }}
     outputs:
       # We map the step output to the job output
