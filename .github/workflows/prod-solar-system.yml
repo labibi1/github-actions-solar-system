@@ -322,13 +322,13 @@ jobs:
       - name: Configure kubeconfig context
         uses: azure/k8s-set-context@v3
         with:
-         method: kubeconfig
-         kubeconfig: ${{ secrets.KUBECONFIG}}
+          method: kubeconfig
+          kubeconfig: ${{ secrets.KUBECONFIG }}
 
-      - name: Fetch Kubernetes Cluster Details
+      - name: Fetch Kubernetes cluster details
         run: |
           kubectl version --short
-          echo '------------nodes------------'
+          echo '---------------------------------'
           kubectl get nodes
 
 
