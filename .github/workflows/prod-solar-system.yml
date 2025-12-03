@@ -300,7 +300,7 @@ jobs:
   prod-deploy:
     needs: [docker, dev-integration-testing,dev-deploy]
     environment:
-      name: production
+      name: prod
      # The 'url' link here will also correctly use the captured HOST value
       url: https://${{ steps.set-ingress-host-address.outputs.APP_INGRESS_HOST }}
     outputs:
@@ -340,7 +340,7 @@ jobs:
         with:
           tokenPrefix: '_{_'
           tokenSuffix: '_}_'
-          files: kubernetes/development/*.yaml
+          files: kubernetes/production/*.yaml
         env:
           NAMESPACE: ${{ vars.NAMESPACE }}
           REPLICAS: ${{ vars.REPLICAS }}
