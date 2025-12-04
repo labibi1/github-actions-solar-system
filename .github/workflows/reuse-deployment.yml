@@ -30,6 +30,11 @@ on:
       mongodb-password:
         required: true
 
+    outputs:
+      application-url:
+        description: The application ingress URL
+        value: ${{ jobs.reuse-dev-deploy.outputs.APP_INGRESS_URL }}
+
 
 jobs:
   reuse-dev-deploy:
