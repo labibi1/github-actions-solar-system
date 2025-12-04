@@ -396,7 +396,7 @@ jobs:
       - name: Test `/live` Endpoint
         env:
           # Accesses the corrected output from the dev-deploy job
-          URL: ${{ needs.dev-deploy.outputs.APP_INGRESS_URL }}
+          URL: ${{ needs.prod-deploy.outputs.APP_INGRESS_URL }}
         run: |
           echo "Testing endpoint: https://$URL/live"
           # -k ignores invalid SSL certificates, which is often necessary

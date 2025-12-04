@@ -1,0 +1,241 @@
+name: Prod Solar System Workflows
+#samka
+
+on: 
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - 'feature/*'
+
+env:
+  MONGO_URI: 'mongodb+srv://supercluster.d83jj.mongodb.net/superData'
+  MONGO_USERNAME: superuser
+  MONGO_PASSWORD: ${{ secrets.MONGO_PASSWORD }}
+    
+jobs:
+  unit-testing:
+    name: Unit Testing
+    strategy:
+      matrix:
+        nodejs_version: [18]
+        operating_system: [ubuntu-latest]
+        # exclude:
+        # - nodejs_version: 18
+        #   operating_system: macos-latest
+    runs-on: ${{ matrix.operating_system }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+
+      - name: Setup Node.js ${{ matrix.nodejs_version }}
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.nodejs_version }}
+
+
+      - name: Cache NPM dependencies
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-node-modules-${{ hashFiles('package-lock.json') }}
+
+
+      - name: Install Dependencies
+        run: npm install
+
+
+      - name: Run Unit Tests
+        run: npm test
+
+
+      - name: Archive Test Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mocha-test-results
+          path: test-results.xml
+
+
+  code-coverage:
+    name: Code Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+
+      - name: Setup Node.js 18
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+
+      - name: Cache NPM dependencies
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-node-modules-${{ hashFiles('package-lock.json') }}
+
+
+      - name: Install Dependencies
+        run: npm install
+
+
+      - name: Run Coverage
+        continue-on-error: true
+        run: npm run coverage
+
+
+      - name: Archive Coverage Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: corvrage-results.xml
+
+
+  containerization:
+    name: Containerization
+    needs: [unit-testing, code-coverage]
+    runs-on: ubuntu-latest
+
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+
+      - name: Build Docker Image for Testing
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          load: true
+          push: false
+          tags: ${{ vars.DOCKERHUB_USERNAME }}/solar-system:${{ github.sha }}
+
+
+      - name: Run Container and Test `/live` Endpoint
+        run: |
+          docker run --rm --name solar-system-app -d \
+            -p 3000:3000 \
+            -e MONGO_URI=$MONGO_URI \
+            -e MONGO_USERNAME=$MONGO_USERNAME \
+            -e MONGO_PASSWORD=$MONGO_PASSWORD \
+            ${{ vars.DOCKERHUB_USERNAME }}/solar-system:${{ github.sha }}
+
+
+  docker:
+    name: Push to Docker Hub & GHCR
+    needs: [unit-testing, containerization, code-coverage]
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write    # Grant write access to GHCR
+      contents: read
+
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+
+
+      - name: Login to GHCR
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+
+      - name: Build image for tests
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: false
+          tags: ${{ vars.DOCKERHUB_USERNAME }}/solar-system:${{ github.sha }}
+
+
+      - name: Test container locally
+        run: |
+          docker run --rm -d -p 3000:3000 \
+            -e MONGO_URI=$MONGO_URI \
+            -e MONGO_USERNAME=$MONGO_USERNAME \
+            -e MONGO_PASSWORD=$MONGO_PASSWORD \
+            ${{ vars.DOCKERHUB_USERNAME }}/solar-system:${{ github.sha }}
+          sleep 5
+          wget -qO- http://localhost:3000/live | grep "live"
+
+      - name: Push to Docker Hub & GHCR
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ vars.DOCKERHUB_USERNAME }}/solar-system:${{ github.sha }}
+            ghcr.io/${{ github.repository_owner }}/solar-system:${{ github.sha }}
+
+
+  dev-deploy:
+   needs: docker
+   if: contains(github.ref, 'feature/')
+   uses: ./.github/workflows/reuse-deployment.yml
+   secrets: #inherit
+    k8s-kubeconfig: ${{ secrets.KUBECONFIG }}
+    mongodb-password: ${{ secrets.MONGO_PASSWORD }}
+  
+
+  dev-integration-testing:
+    name: Dev Integration Testing
+    if: contains(github.ref, 'feature/')
+    needs: dev-deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Test `/live` Endpoint
+        env:
+          # Accesses the corrected output from the dev-deploy job
+          URL: ${{ needs.dev-deploy.outputs.APP_INGRESS_URL }}
+        run: |
+          echo "Testing endpoint: https://$URL/live"
+          # -k ignores invalid SSL certificates, which is often necessary
+          # for internal testing with custom or self-signed certs.
+          curl https://$URL/live -s -k | jq -r .status | grep -iq live
+
+
+  prod-deploy:
+    needs: [docker]
+    if: github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/reuse-deployment.yml
+    secrets: #inherit
+     k8s-kubeconfig: ${{ secrets.KUBECONFIG }}
+     mongodb-password: ${{ secrets.MONGO_PASSWORD }}
+    
+  prod-integration-testing:
+    if: github.ref == 'refs/heads/main'
+    name: Prod Integration Testing
+    needs: prod-deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Test `/live` Endpoint
+        env:
+          # Accesses the corrected output from the dev-deploy job
+          URL: ${{ needs.prod-deploy.outputs.APP_INGRESS_URL }}
+        run: |
+          echo "Testing endpoint: https://$URL/live"
+          # -k ignores invalid SSL certificates, which is often necessary
+          # for internal testing with custom or self-signed certs.
+          curl https://$URL/live -s -k | jq -r .status | grep -iq live
+
+
