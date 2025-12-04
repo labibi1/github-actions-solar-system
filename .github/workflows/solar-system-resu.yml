@@ -219,8 +219,8 @@ jobs:
     if: github.ref == 'refs/heads/main'
     uses: ./.github/workflows/reuse-deployment.yml
     secrets: #inherit
-     k8s-kubeconfig: ${{ secrets.KUBECONFIG }}
-     mongodb-password: ${{ secrets.MONGO_PASSWORD }}
+      k8s-kubeconfig: ${{ secrets.KUBECONFIG }}
+      mongodb-password: ${{ secrets.MONGO_PASSWORD }}
     
   prod-integration-testing:
     if: github.ref == 'refs/heads/main'
