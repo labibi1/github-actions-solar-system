@@ -121,6 +121,7 @@ jobs:
         mv test-results.xml reports-${{ github.sha }}/
         ls -ltr reports-${{ github.sha }}/
         rm -rf coverage-summary.json lcov.info lcov-report/
+        ls -ltr
 
 
     # - name: Sync to S3
