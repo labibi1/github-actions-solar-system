@@ -125,13 +125,14 @@ jobs:
     - name: Sync to S3
       uses: jakejarvis/s3-sync-action@master
       with:
-        args: --acl public-read --follow-symlinks --delete
+        # **CORRECTION:** Remove the unsupported --acl public-read argument
+        args: --follow-symlinks --delete
+        # You also need to specify the SOURCE_DIR or else it syncs everything
+        source_dir: . 
       env:
         AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        #AWS_REGION: 'us-west-1'   # Optional: defaults to us-east-1
-        #SOURCE_DIR: 'public' 
 
 
   containerization:
